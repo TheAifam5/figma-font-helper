@@ -1,5 +1,4 @@
-use crate::providers::FontProvider;
-use std::path::PathBuf;
+use crate::provider::FontProvider;
 
 pub struct FontDatabase {
   provider: Box<dyn FontProvider>,

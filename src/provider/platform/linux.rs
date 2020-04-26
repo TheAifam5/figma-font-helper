@@ -1,4 +1,4 @@
-use crate::providers::FontProvider;
+use crate::provider::FontProvider;
 
 use std::os::raw::c_char;
 

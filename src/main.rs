@@ -7,29 +7,16 @@ use std::{env, io};
 use log::{info, warn};
 use pretty_env_logger;
 
-use actix_service::Service;
-use actix_web::http::header::{ORIGIN, REFERER};
-use actix_web::{middleware, web, App, HttpResponse, HttpServer};
+use actix_web::{web, App, HttpResponse, HttpServer};
 // use font_kit::source::SystemSource;
-use futures::future::{ok, Either};
-use serde::Deserialize;
 
-use openssl::error::ErrorStack;
-use openssl::ssl::SslAcceptorBuilder;
 use openssl::{
+  error::ErrorStack,
   pkcs12::Pkcs12,
-  ssl::{SslAcceptor, SslMethod},
+  ssl::{SslAcceptor, SslAcceptorBuilder, SslMethod},
 };
 
-// mod dto;
-mod providers;
-// mod query;
-// mod routes;
-
-#[derive(Deserialize)]
-pub struct ServerState {
-  pub protocol_version: usize,
-}
+use ffh::{middleware, ServerState};
 
 #[actix_rt::main]
 async fn main() -> io::Result<()> {
@@ -50,40 +37,17 @@ async fn main() -> io::Result<()> {
           .header("Access-Control-Allow-Origin", "https://www.figma.com"),
       )
       // guard server to allow only requests from figma
-      .wrap_fn(|req, srv| {
-        let request_host = {
-          if let Some(value) = req.headers().get(ORIGIN) {
-            value.to_str().ok()
-          } else if let Some(value) = req.headers().get(REFERER) {
-            value.to_str().ok()
-          } else {
-            None
-          }
-        };
-
-        if request_host.is_some() && request_host.unwrap() == "https://www.figma.com" {
-          return Either::Left(srv.call(req));
-        }
-
-        return Either::Right(ok(
-          req.into_response(
-            HttpResponse::Unauthorized()
-              .set_header("Access-Control-Allow-Origin", "https://www.figma.com")
-              .finish()
-              .into_body(),
-          ),
-        ));
-      })
+      .wrap(middleware::AllowFigmaOnly)
       // enable logger - always register actix-web Logger middleware last
       .wrap(middleware::Logger::default())
       // register version
-      // .service(routes::version::handler)
+      // .service(route::version::handler)
       // register font_file
-      // .service(routes::fontfile::handler)
+      // .service(route::fontfile::handler)
       // register font_files
-      // .service(routes::fontfiles::handler)
+      // .service(route::fontfiles::handler)
       // register update
-      // .service(routes::update::handler)
+      // .service(route::update::handler)
       // default
       .default_service(
         // 404 for GET request
@@ -94,12 +58,6 @@ async fn main() -> io::Result<()> {
   .bind_openssl(("127.0.0.1", 7335), create_ssl_acceptor()?)?
   .run()
   .await
-}
-
-impl Default for ServerState {
-  fn default() -> Self {
-    Self { protocol_version: 21 }
-  }
 }
 
 fn create_ssl_acceptor() -> Result<SslAcceptorBuilder, ErrorStack> {
