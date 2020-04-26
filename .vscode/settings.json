@@ -1,0 +1,9 @@
+{
+  "files.exclude": {
+    "**/.git": true,
+    "**/.DS_Store": true,
+    "**/.history": true,
+    "**/build": true
+  },
+  "discord.enabled": true
+}
