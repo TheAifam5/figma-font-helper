@@ -1,5 +1,5 @@
 use serde::Serialize;
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 
 #[derive(Serialize)]
 pub struct FontDescriptorDTO {
@@ -15,5 +15,5 @@ pub struct FontDescriptorDTO {
 pub struct FontFilesDTO {
   pub version: usize,
   #[serde(rename = "fontFiles")]
-  pub font_files: HashMap<String, Vec<FontDescriptorDTO>>,
+  pub font_files: HashMap<PathBuf, Vec<FontDescriptorDTO>>,
 }

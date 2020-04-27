@@ -4,7 +4,7 @@
 
 use std::{env, io};
 
-use log::{info, warn};
+use log::warn;
 use pretty_env_logger;
 
 use actix_web::{web, App, HttpResponse, HttpServer};
@@ -16,20 +16,22 @@ use openssl::{
   ssl::{SslAcceptor, SslAcceptorBuilder, SslMethod},
 };
 
-use ffh::{middleware, ServerState};
+use ffh::{
+  middleware,
+  provider::{FontProvider, PlatformFontProvider},
+  route, ServerState,
+};
 
 #[actix_rt::main]
 async fn main() -> io::Result<()> {
   env::set_var("RUST_LOG", "actix_web=debug,actix_server=info");
   pretty_env_logger::init();
 
-  // let my_str = include_str!("spanish.in");
-
-  info!("Initializing font database...");
-
   HttpServer::new(|| {
     App::new()
-      // .app_data(web::Data::new(SystemSource::new()))
+      .app_data(web::Data::<Box<dyn FontProvider>>::new(Box::new(
+        PlatformFontProvider::new().unwrap(),
+      )))
       .app_data(web::Data::new(ServerState::default()))
       .wrap(middleware::Compress::default())
       .wrap(
@@ -41,13 +43,13 @@ async fn main() -> io::Result<()> {
       // enable logger - always register actix-web Logger middleware last
       .wrap(middleware::Logger::default())
       // register version
-      // .service(route::version::handler)
+      .service(route::version::handler)
       // register font_file
-      // .service(route::fontfile::handler)
+      .service(route::fontfile::handler)
       // register font_files
-      // .service(route::fontfiles::handler)
+      .service(route::fontfiles::handler)
       // register update
-      // .service(route::update::handler)
+      .service(route::update::handler)
       // default
       .default_service(
         // 404 for GET request

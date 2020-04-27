@@ -7,15 +7,34 @@
     {
       "type": "lldb",
       "request": "launch",
-      "name": "Debug executable 'figma-font-helper'",
+      "name": "Debug unit tests in library 'ffh'",
       "cargo": {
         "args": [
-          "build",
-          "--bin=figma-font-helper",
+          "test",
+          "--no-run",
+          "--lib",
           "--package=figma-font-helper"
         ],
         "filter": {
-          "name": "figma-font-helper",
+          "name": "ffh",
+          "kind": "lib"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug executable 'ffh'",
+      "cargo": {
+        "args": [
+          "build",
+          "--bin=ffh",
+          "--package=figma-font-helper"
+        ],
+        "filter": {
+          "name": "ffh",
           "kind": "bin"
         }
       },
@@ -25,16 +44,16 @@
     {
       "type": "lldb",
       "request": "launch",
-      "name": "Debug unit tests in executable 'figma-font-helper'",
+      "name": "Debug unit tests in executable 'ffh'",
       "cargo": {
         "args": [
           "test",
           "--no-run",
-          "--bin=figma-font-helper",
+          "--bin=ffh",
           "--package=figma-font-helper"
         ],
         "filter": {
-          "name": "figma-font-helper",
+          "name": "ffh",
           "kind": "bin"
         }
       },
