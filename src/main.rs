@@ -16,23 +16,16 @@ use openssl::{
   ssl::{SslAcceptor, SslAcceptorBuilder, SslMethod},
 };
 
-use ffh::{
-  middleware,
-  provider::{FontProvider, PlatformFontProvider},
-  route, ServerState,
-};
+use ffh::{middleware, route, ServerState};
 
 #[actix_rt::main]
 async fn main() -> io::Result<()> {
-  env::set_var("RUST_LOG", "actix_web=debug,actix_server=info");
+  env::set_var("RUST_LOG", "actix_server=info,actix_web=info");
   pretty_env_logger::init();
 
   HttpServer::new(|| {
     App::new()
-      .app_data(web::Data::<Box<dyn FontProvider>>::new(Box::new(
-        PlatformFontProvider::new().unwrap(),
-      )))
-      .app_data(web::Data::new(ServerState::default()))
+      .app_data(web::Data::new(ServerState::new().unwrap()))
       .wrap(middleware::Compress::default())
       .wrap(
         middleware::DefaultHeaders::new()

@@ -6,7 +6,7 @@ use actix_web::{
   http::header::{ORIGIN, REFERER},
   Error, HttpResponse,
 };
-use futures::future::{ok, Either, Ready};
+use futures::future::{err, ok, Either, Ready};
 
 pub struct AllowFigmaOnly;
 
@@ -59,13 +59,6 @@ where
       return Either::Left(self.service.call(req));
     }
 
-    return Either::Right(ok(
-      req.into_response(
-        HttpResponse::Unauthorized()
-          .set_header("Access-Control-Allow-Origin", "https://www.figma.com")
-          .finish()
-          .into_body(),
-      ),
-    ));
+    return Either::Right(err(Error::from(HttpResponse::Forbidden())));
   }
 }

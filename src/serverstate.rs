@@ -1,12 +1,29 @@
-use serde::Deserialize;
+use crate::provider::{
+  FontDatabase, FontDatabaseErr, FontProvider, FontProviderErr, PlatformFontProvider,
+};
+use snafu::{Backtrace, Snafu};
 
-#[derive(Deserialize)]
-pub struct ServerState {
-  pub protocol_version: usize,
+#[derive(Debug, Snafu)]
+pub enum ServerStateErr {
+  #[snafu(context(false))]
+  ProviderError { source: FontProviderErr, backtrace: Backtrace },
+
+  #[snafu(context(false))]
+  DatabaseError { source: FontDatabaseErr, backtrace: Backtrace },
 }
 
-impl Default for ServerState {
-  fn default() -> Self {
-    Self { protocol_version: 21 }
+type Result<T, E = ServerStateErr> = std::result::Result<T, E>;
+
+pub struct ServerState {
+  pub protocol_version: usize,
+  pub database: FontDatabase,
+}
+
+impl ServerState {
+  pub fn new() -> Result<Self, ServerStateErr> {
+    Ok(Self {
+      protocol_version: 21,
+      database: FontDatabase::new(Box::new(PlatformFontProvider::new()?))?,
+    })
   }
 }

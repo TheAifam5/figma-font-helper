@@ -5,11 +5,11 @@ use actix_web::{get, web, Result};
 #[get("/figma/update")]
 pub async fn handler(
   web::Query(query): web::Query<UpdateQuery>,
-  config: web::Data<ServerState>,
+  state: web::Data<ServerState>,
 ) -> Result<web::Json<VersionDTO>> {
-  if query.version > config.protocol_version {
+  if query.version > state.protocol_version {
     // inform about the update somehow
   }
 
-  Ok(web::Json(VersionDTO { version: config.protocol_version }))
+  Ok(web::Json(VersionDTO { version: state.protocol_version }))
 }

@@ -1,6 +1,7 @@
 use super::platform;
 use std::path::PathBuf;
 
+#[derive(Copy, Clone)]
 pub enum FontWeight {
   Thin = 100,
   ExtraLight = 200,
@@ -14,6 +15,7 @@ pub enum FontWeight {
   ExtraBlack = 950,
 }
 
+#[derive(Copy, Clone)]
 pub enum FontWidth {
   UltraCondensed = 50,
   ExtraCondensed = 63, // 62.5%
@@ -41,4 +43,5 @@ pub trait FontProvider {
   where
     Self: Sized;
   fn get_all_fonts(&self) -> Result<Vec<FontDescriptor>, platform::FontProviderErr>;
+  fn get_font_paths(&self) -> Result<Vec<PathBuf>, platform::FontProviderErr>;
 }

@@ -1,17 +1,44 @@
-use crate::provider::FontProvider;
+use crate::provider::{FontDescriptor, FontProvider, FontProviderErr};
+use snafu::{Backtrace, Snafu};
+use std::{ops::Deref, path::PathBuf};
+
+#[derive(Debug, Snafu)]
+pub enum FontDatabaseErr {
+  #[snafu(display("Failed to initialize font database: {}", message))]
+  Initialization { message: String, backtrace: Backtrace },
+
+  #[snafu(context(false))]
+  PlatformFontProvider { source: FontProviderErr, backtrace: Backtrace },
+}
+
+type Result<T, E = FontDatabaseErr> = std::result::Result<T, E>;
 
 pub struct FontDatabase {
   provider: Box<dyn FontProvider>,
+  fonts: Vec<FontDescriptor>,
 }
 
 impl FontDatabase {
-  pub fn new(provider: Box<dyn FontProvider>) -> Self {
-    Self { provider }
+  pub fn new(provider: Box<dyn FontProvider>) -> Result<Self> {
+    let mut instance = Self { provider, fonts: vec![] };
+    instance.invalidate()?;
+    Ok(instance)
   }
 
-  pub async fn refresh(&mut self) {}
+  pub fn invalidate(&mut self) -> Result<()> {
+    self.fonts = self.provider.get_all_fonts()?;
+    Ok(())
+  }
 
-  pub async fn force_refresh(&mut self) {
-    let _fonts = self.provider.get_all_fonts();
+  pub fn is_path_valid(&self, path: PathBuf) -> bool {
+    self.fonts.iter().any(|f| f.path == path)
+  }
+}
+
+impl Deref for FontDatabase {
+  type Target = Vec<FontDescriptor>;
+
+  fn deref(&self) -> &Self::Target {
+    &self.fonts
   }
 }

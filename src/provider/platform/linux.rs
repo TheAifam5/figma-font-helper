@@ -54,6 +54,11 @@ struct FcConfig {
 }
 
 #[repr(C)]
+struct FcStrList {
+  _private: [u8; 0],
+}
+
+#[repr(C)]
 struct FcPattern {
   _private: [u8; 0],
 }
@@ -71,6 +76,7 @@ struct FcFontSet {
 }
 
 type FcChar8 = c_uchar;
+type FcBool = c_int;
 const FC_FAMILY: &[u8] = b"family\0";
 const FC_STYLE: &[u8] = b"style\0";
 const FC_FILE: &[u8] = b"file\0";
@@ -84,6 +90,9 @@ const FC_SLANT_ITALIC: c_int = 100;
 extern "C" {
   fn FcInitLoadConfigAndFonts() -> *mut FcConfig;
   fn FcConfigDestroy(config: *const FcConfig);
+
+  fn FcConfigEnableHome(enable: FcBool) -> FcBool;
+  fn FcConfigGetFontDirs(config: *const FcConfig) -> *const FcStrList;
 
   fn FcPatternCreate() -> *mut FcPattern;
   fn FcPatternDestroy(p: *const FcPattern);
@@ -111,6 +120,10 @@ extern "C" {
     n: c_int,
     i: &mut c_int,
   ) -> FcResult;
+
+  fn FcStrListFirst(list: *const FcStrList);
+  fn FcStrListNext(list: *const FcStrList) -> *const FcChar8;
+  fn FcStrListDone(list: *const FcStrList);
 }
 
 #[derive(Debug, Snafu)]
@@ -127,8 +140,11 @@ pub enum LinuxFontProviderErr {
   #[snafu(display("Unable to match the font width: {}", value))]
   FontWidthMismatch { value: c_int, backtrace: Backtrace },
 
+  #[snafu(display("Unable to fetch the font directories: {}", message))]
+  FontDirsEmpty { message: String, backtrace: Backtrace },
+
   #[snafu(context(false))]
-  InvalidString { source: Utf8Error },
+  InvalidString { source: Utf8Error, backtrace: Backtrace },
 }
 
 type Result<T, E = LinuxFontProviderErr> = std::result::Result<T, E>;
@@ -171,6 +187,10 @@ impl FontProvider for LinuxFontProvider {
     };
     if object_set.is_null() {
       Initialization { message: "FcObjectSetBuild failed".to_owned() }.fail()?;
+    }
+
+    unsafe {
+      FcConfigEnableHome(1);
     }
 
     Ok(Self { config, pattern, object_set })
@@ -265,6 +285,30 @@ impl FontProvider for LinuxFontProvider {
     unsafe { FcFontSetDestroy(font_set) }
 
     Ok(fonts)
+  }
+
+  fn get_font_paths(&self) -> Result<Vec<PathBuf>, LinuxFontProviderErr> {
+    let mut result: Vec<PathBuf> = vec![];
+    let paths = unsafe { FcConfigGetFontDirs(self.config) };
+
+    if paths.is_null() {
+      FontDirsEmpty { message: "FcConfigGetFontDirs returned NULL" }.fail()?
+    }
+
+    unsafe { FcStrListFirst(paths) };
+
+    loop {
+      let next: *const FcChar8 = unsafe { FcStrListNext(paths) };
+      if next.is_null() {
+        break;
+      }
+
+      result.push(PathBuf::from(unsafe { CStr::from_ptr(next as *const c_char) }.to_str()?));
+    }
+
+    unsafe { FcStrListDone(paths) };
+
+    Ok(result)
   }
 }
 
