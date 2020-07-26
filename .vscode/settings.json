@@ -5,5 +5,18 @@
     "**/.history": true,
     "**/build": true
   },
-  "discord.enabled": true
+  "discord.enabled": true,
+  "cSpell.words": [
+    "actix",
+    "demi",
+    "figma",
+    "fontconfig",
+    "fontfile",
+    "fontfiles",
+    "nfont",
+    "postscriptname",
+    "psname",
+    "referer",
+    "sfont"
+  ]
 }

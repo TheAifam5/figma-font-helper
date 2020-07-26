@@ -4,4 +4,4 @@ mod platform;
 
 pub use fontdatabase::{FontDatabase, FontDatabaseErr};
 pub use fontprovider::{FontDescriptor, FontProvider, FontWeight, FontWidth};
-pub use platform::{FontProvider as PlatformFontProvider, FontProviderErr};
+pub use platform::{PlatformFontProvider, PlatformFontProviderErr};

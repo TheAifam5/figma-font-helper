@@ -1,14 +1,14 @@
-use crate::provider::{FontDescriptor, FontProvider, FontProviderErr};
-use snafu::{Backtrace, Snafu};
+use crate::provider::{FontDescriptor, FontProvider, PlatformFontProviderErr};
 use std::{ops::Deref, path::PathBuf};
+use thiserror::Error;
 
-#[derive(Debug, Snafu)]
+#[derive(Error, Debug)]
 pub enum FontDatabaseErr {
-  #[snafu(display("Failed to initialize font database: {}", message))]
-  Initialization { message: String, backtrace: Backtrace },
+  #[error("Failed to initialize font database: {0}")]
+  Initialization(String),
 
-  #[snafu(context(false))]
-  PlatformFontProvider { source: FontProviderErr, backtrace: Backtrace },
+  #[error(transparent)]
+  PlatformFontProvider(#[from] PlatformFontProviderErr),
 }
 
 type Result<T, E = FontDatabaseErr> = std::result::Result<T, E>;

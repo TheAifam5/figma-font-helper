@@ -1,15 +1,15 @@
 use crate::provider::{
-  FontDatabase, FontDatabaseErr, FontProvider, FontProviderErr, PlatformFontProvider,
+  FontDatabase, FontDatabaseErr, FontProvider, PlatformFontProvider, PlatformFontProviderErr,
 };
-use snafu::{Backtrace, Snafu};
+use thiserror::Error;
 
-#[derive(Debug, Snafu)]
+#[derive(Error, Debug)]
 pub enum ServerStateErr {
-  #[snafu(context(false))]
-  ProviderError { source: FontProviderErr, backtrace: Backtrace },
+  #[error(transparent)]
+  ProviderError(#[from] PlatformFontProviderErr),
 
-  #[snafu(context(false))]
-  DatabaseError { source: FontDatabaseErr, backtrace: Backtrace },
+  #[error(transparent)]
+  DatabaseError(#[from] FontDatabaseErr),
 }
 
 type Result<T, E = ServerStateErr> = std::result::Result<T, E>;

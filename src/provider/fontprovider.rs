@@ -1,4 +1,4 @@
-use super::platform;
+use super::platform::PlatformFontProviderErr;
 use std::path::PathBuf;
 
 #[derive(Copy, Clone)]
@@ -39,9 +39,9 @@ pub struct FontDescriptor {
 }
 
 pub trait FontProvider {
-  fn new() -> Result<Self, platform::FontProviderErr>
+  fn new() -> Result<Self, PlatformFontProviderErr>
   where
     Self: Sized;
-  fn get_all_fonts(&self) -> Result<Vec<FontDescriptor>, platform::FontProviderErr>;
-  fn get_font_paths(&self) -> Result<Vec<PathBuf>, platform::FontProviderErr>;
+  fn get_all_fonts(&self) -> Result<Vec<FontDescriptor>, PlatformFontProviderErr>;
+  fn get_font_paths(&self) -> Result<Vec<PathBuf>, PlatformFontProviderErr>;
 }

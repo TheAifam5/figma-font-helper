@@ -1,6 +1,7 @@
+#![allow(unsafe_code)]
+
 use crate::provider::{FontDescriptor, FontProvider, FontWeight, FontWidth};
 
-use snafu::{Backtrace, Snafu};
 use std::{
   convert::TryFrom,
   ffi::{CStr, OsStr},
@@ -12,6 +13,7 @@ use std::{
   string::ToString,
 };
 use strum_macros::Display;
+use thiserror::Error;
 
 #[repr(u32)]
 #[derive(PartialEq)]
@@ -126,51 +128,53 @@ extern "C" {
   fn FcStrListDone(list: *const FcStrList);
 }
 
-#[derive(Debug, Snafu)]
-pub enum LinuxFontProviderErr {
-  #[snafu(display("Failed to initialize font provider context: {}", message))]
-  Initialization { message: String, backtrace: Backtrace },
+#[derive(Error, Debug)]
+pub enum PlatformFontProviderErr {
+  #[error("Failed to initialize font provider context: {0}")]
+  Initialization(String),
 
-  #[snafu(display("Unable to fetch the font list: {}", message))]
-  FontListEmpty { message: String, backtrace: Backtrace },
+  #[error("Unable to fetch the font list: {0}")]
+  FontListEmpty(String),
 
-  #[snafu(display("Unable to match the font weight: {}", value))]
-  FontWeightMismatch { value: c_int, backtrace: Backtrace },
+  #[error("Unable to match the font weight: {0}")]
+  FontWeightMismatch(c_int),
 
-  #[snafu(display("Unable to match the font width: {}", value))]
-  FontWidthMismatch { value: c_int, backtrace: Backtrace },
+  #[error("Unable to match the font width: {0}")]
+  FontWidthMismatch(c_int),
 
-  #[snafu(display("Unable to fetch the font directories: {}", message))]
-  FontDirsEmpty { message: String, backtrace: Backtrace },
+  #[error("Unable to fetch the font directories: {0}")]
+  FontDirsEmpty(String),
 
-  #[snafu(context(false))]
-  InvalidString { source: Utf8Error, backtrace: Backtrace },
+  #[error(transparent)]
+  InvalidString(#[from] Utf8Error),
 }
 
-type Result<T, E = LinuxFontProviderErr> = std::result::Result<T, E>;
+type Result<T, E = PlatformFontProviderErr> = std::result::Result<T, E>;
 
-pub struct LinuxFontProvider {
+pub struct PlatformFontProvider {
   config: *const FcConfig,
   pattern: *const FcPattern,
   object_set: *const FcObjectSet,
 }
 
-impl LinuxFontProvider {
+impl PlatformFontProvider {
   fn get_extension_from_filename(filename: &str) -> Option<&str> {
     Path::new(filename).extension().and_then(OsStr::to_str)
   }
 }
 
-impl FontProvider for LinuxFontProvider {
+impl FontProvider for PlatformFontProvider {
   fn new() -> Result<Self> {
     let config = unsafe { FcInitLoadConfigAndFonts() };
     if config.is_null() {
-      Initialization { message: "FcInitLoadConfigAndFonts failed".to_owned() }.fail()?;
+      return Err(PlatformFontProviderErr::Initialization(
+        "FcInitLoadConfigAndFonts failed".to_owned(),
+      ));
     }
 
     let pattern = unsafe { FcPatternCreate() };
     if pattern.is_null() {
-      Initialization { message: "FcPatternCreate failed".to_owned() }.fail()?;
+      return Err(PlatformFontProviderErr::Initialization("FcPatternCreate failed".to_owned()));
     }
 
     let object_set = unsafe {
@@ -186,7 +190,7 @@ impl FontProvider for LinuxFontProvider {
       )
     };
     if object_set.is_null() {
-      Initialization { message: "FcObjectSetBuild failed".to_owned() }.fail()?;
+      return Err(PlatformFontProviderErr::Initialization("FcObjectSetBuild failed".to_owned()));
     }
 
     unsafe {
@@ -202,7 +206,7 @@ impl FontProvider for LinuxFontProvider {
       unsafe { FcFontList(self.config, self.pattern, self.object_set) };
 
     if font_set.is_null() {
-      FontListEmpty { message: "FcFontList failed".to_owned() }.fail()?;
+      return Err(PlatformFontProviderErr::FontListEmpty("FcFontList failed".to_owned()));
     }
 
     for pattern in unsafe { from_raw_parts((&*font_set).fonts, (&*font_set).nfont as usize) }
@@ -287,12 +291,12 @@ impl FontProvider for LinuxFontProvider {
     Ok(fonts)
   }
 
-  fn get_font_paths(&self) -> Result<Vec<PathBuf>, LinuxFontProviderErr> {
+  fn get_font_paths(&self) -> Result<Vec<PathBuf>, PlatformFontProviderErr> {
     let mut result: Vec<PathBuf> = vec![];
     let paths = unsafe { FcConfigGetFontDirs(self.config) };
 
     if paths.is_null() {
-      FontDirsEmpty { message: "FcConfigGetFontDirs returned NULL" }.fail()?
+      return Err(PlatformFontProviderErr::FontDirsEmpty("FcConfigGetFontDirs failed".to_owned()));
     }
 
     unsafe { FcStrListFirst(paths) };
@@ -312,7 +316,7 @@ impl FontProvider for LinuxFontProvider {
   }
 }
 
-impl Drop for LinuxFontProvider {
+impl Drop for PlatformFontProvider {
   fn drop(&mut self) {
     if !self.pattern.is_null() {
       unsafe {
@@ -335,24 +339,24 @@ impl Drop for LinuxFontProvider {
 }
 
 impl TryFrom<c_int> for FcWeight {
-  type Error = LinuxFontProviderErr;
+  type Error = PlatformFontProviderErr;
   fn try_from(value: c_int) -> Result<Self, Self::Error> {
     return match value {
-      0..40 => Ok(FcWeight::Thin),
-      40..50 => Ok(FcWeight::ExtraLight),
-      50..75 => Ok(FcWeight::Light),
-      75..80 => Ok(FcWeight::Book),
-      80..100 => Ok(FcWeight::Regular),
-      100..180 => Ok(FcWeight::Medium),
-      180..200 => Ok(FcWeight::DemiBold),
-      200..205 => Ok(FcWeight::Bold),
-      205..210 => Ok(FcWeight::ExtraBold),
-      210..215 => Ok(FcWeight::Black),
+      0..=39 => Ok(FcWeight::Thin),
+      40..=49 => Ok(FcWeight::ExtraLight),
+      50..=74 => Ok(FcWeight::Light),
+      75..=79 => Ok(FcWeight::Book),
+      80..=99 => Ok(FcWeight::Regular),
+      100..=179 => Ok(FcWeight::Medium),
+      180..=199 => Ok(FcWeight::DemiBold),
+      200..=204 => Ok(FcWeight::Bold),
+      205..=209 => Ok(FcWeight::ExtraBold),
+      210..=214 => Ok(FcWeight::Black),
       _ => {
         if value >= 215 {
           Ok(FcWeight::ExtraBlack)
         } else {
-          FontWeightMismatch { value }.fail()?
+          Err(PlatformFontProviderErr::FontWeightMismatch(value))
         }
       }
     };
@@ -378,22 +382,22 @@ impl From<FcWeight> for FontWeight {
 }
 
 impl TryFrom<c_int> for FcWidth {
-  type Error = LinuxFontProviderErr;
+  type Error = PlatformFontProviderErr;
   fn try_from(value: c_int) -> Result<Self, Self::Error> {
     return match value {
-      0..63 => Ok(FcWidth::UltraCondensed),
-      63..75 => Ok(FcWidth::ExtraCondensed),
-      75..87 => Ok(FcWidth::Condensed),
-      87..100 => Ok(FcWidth::SemiCondensed),
-      100..113 => Ok(FcWidth::Normal),
-      113..125 => Ok(FcWidth::SemiExpanded),
-      125..150 => Ok(FcWidth::Expanded),
-      150..200 => Ok(FcWidth::ExtraExpanded),
+      0..=62 => Ok(FcWidth::UltraCondensed),
+      63..=74 => Ok(FcWidth::ExtraCondensed),
+      75..=86 => Ok(FcWidth::Condensed),
+      87..=99 => Ok(FcWidth::SemiCondensed),
+      100..=112 => Ok(FcWidth::Normal),
+      113..=124 => Ok(FcWidth::SemiExpanded),
+      125..=149 => Ok(FcWidth::Expanded),
+      150..=199 => Ok(FcWidth::ExtraExpanded),
       _ => {
         if value >= 200 {
           Ok(FcWidth::UltraExpanded)
         } else {
-          FontWidthMismatch { value }.fail()?
+          Err(PlatformFontProviderErr::FontWidthMismatch(value))
         }
       }
     };

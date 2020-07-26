@@ -1,14 +1,14 @@
-#![warn(rust_2018_idioms)]
-#![warn(clippy::all)]
-#![feature(generators, generator_trait)]
+#![forbid(future_incompatible, rust_2018_compatibility, warnings, clippy::all)]
+#![deny(unsafe_code, nonstandard_style, unused, rust_2018_idioms)]
 
-use std::{env, io};
+use anyhow::Result;
 
-use log::warn;
-use pretty_env_logger;
+use log::LevelFilter;
+use log4rs::append::console::ConsoleAppender;
+use log4rs::append::file::FileAppender;
+use log4rs::config::{Appender, Config, Root};
 
 use actix_web::{web, App, HttpResponse, HttpServer};
-// use font_kit::source::SystemSource;
 
 use openssl::{
   error::ErrorStack,
@@ -16,12 +16,32 @@ use openssl::{
   ssl::{SslAcceptor, SslAcceptorBuilder, SslMethod},
 };
 
+use chrono::Local;
 use ffh::{middleware, route, ServerState};
+use std::env;
 
 #[actix_rt::main]
-async fn main() -> io::Result<()> {
+async fn main() -> Result<()> {
   env::set_var("RUST_LOG", "actix_server=info,actix_web=info");
-  pretty_env_logger::init();
+
+  let log_file_path = {
+    let mut path = env::temp_dir();
+    path.push(format!("ffh_{}.log", Local::now().timestamp()));
+    path
+  };
+
+  let stdout = ConsoleAppender::builder().build();
+
+  let requests = FileAppender::builder().build(log_file_path.clone())?;
+
+  let config = Config::builder()
+    .appender(Appender::builder().build("stdout", Box::new(stdout)))
+    .appender(Appender::builder().build("file", Box::new(requests)))
+    .build(Root::builder().appenders(vec!["stdout", "file"]).build(LevelFilter::Info))?;
+
+  let _handle = log4rs::init_config(config)?;
+
+  log::info!("Log path: {}", log_file_path.to_string_lossy());
 
   HttpServer::new(|| {
     App::new()
@@ -52,7 +72,9 @@ async fn main() -> io::Result<()> {
   .bind(("127.0.0.1", 18412))?
   .bind_openssl(("127.0.0.1", 7335), create_ssl_acceptor()?)?
   .run()
-  .await
+  .await?;
+
+  Ok(())
 }
 
 fn create_ssl_acceptor() -> Result<SslAcceptorBuilder, ErrorStack> {

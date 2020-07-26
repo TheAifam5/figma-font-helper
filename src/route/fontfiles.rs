@@ -1,16 +1,16 @@
 use crate::{
   dto::{FontDescriptorDTO, FontFilesDTO},
-  provider::FontProviderErr,
+  provider::PlatformFontProviderErr,
   ServerState,
 };
 use actix_web::{get, web, ResponseError, Result};
-use snafu::Snafu;
 use std::{collections::HashMap, path::PathBuf};
+use thiserror::Error;
 
-#[derive(Debug, Snafu)]
+#[derive(Error, Debug)]
 pub enum FontFilesHandlerError {
-  #[snafu(context(false))]
-  FontLoading { source: FontProviderErr },
+  #[error(transparent)]
+  FontProvider(#[from] PlatformFontProviderErr),
 }
 
 /// font_files handler

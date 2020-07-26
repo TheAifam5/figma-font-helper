@@ -1,7 +1,5 @@
-#![warn(rust_2018_idioms)]
-#![warn(clippy::all)]
-#![feature(exclusive_range_pattern)]
-#![feature(half_open_range_patterns)]
+#![forbid(future_incompatible, rust_2018_compatibility, warnings, clippy::all)]
+#![deny(unsafe_code, nonstandard_style, unused, rust_2018_idioms)]
 
 mod dto;
 pub mod middleware;
