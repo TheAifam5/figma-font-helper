@@ -1,2 +1,1 @@
-pub struct PlatformFontProvider {}
-pub struct PlatformFontProviderErr {}
+compile_error!("Unknown platform!");
