@@ -8,9 +8,9 @@ pub async fn handler(
   web::Query(query): web::Query<FontFileQuery>,
   state: web::Data<ServerState>,
 ) -> Result<fs::NamedFile> {
-  if state.database.iter().any(|f| f.path.parent() == query.file.parent()) {
-    Ok(fs::NamedFile::open(query.file)?)
+  if let Some(desc) = state.database.iter().find(|f| f.path == query.file) {
+    Ok(fs::NamedFile::open(&desc.path)?)
   } else {
-    Err(Error::from(HttpResponse::Forbidden()))
+    Err(Error::from(HttpResponse::NotFound()))
   }
 }
