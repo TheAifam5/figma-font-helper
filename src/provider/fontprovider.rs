@@ -42,6 +42,7 @@ pub trait FontProvider {
   fn new() -> Result<Self, PlatformFontProviderErr>
   where
     Self: Sized;
+  fn get_api_version(&self) -> Result<usize, PlatformFontProviderErr>;
   fn get_all_fonts(&self) -> Result<Vec<FontDescriptor>, PlatformFontProviderErr>;
   fn get_font_paths(&self) -> Result<Vec<PathBuf>, PlatformFontProviderErr>;
 }

@@ -1,9 +1,8 @@
 use serde::Deserialize;
-use std::path::PathBuf;
 
 #[derive(Deserialize)]
-pub struct FontFileQuery {
+pub struct FontFilesQuery {
   #[serde(rename = "freetype_minimum_api_version")]
   pub ft_min_ver: usize,
-  pub file: PathBuf,
+  pub isolate: bool,
 }

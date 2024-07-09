@@ -7,9 +7,9 @@ pub async fn handler(
   web::Query(query): web::Query<UpdateQuery>,
   state: web::Data<ServerState>,
 ) -> Result<web::Json<VersionDTO>> {
-  if query.version > state.protocol_version {
+  if query.version > state.figma_api_version {
     // inform about the update somehow
   }
 
-  Ok(web::Json(VersionDTO { version: state.protocol_version }))
+  Ok(web::Json(VersionDTO { version: state.figma_api_version }))
 }

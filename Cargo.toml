@@ -2,7 +2,7 @@
 name = "figma-font-helper"
 version = "0.1.0"
 authors = ["TheAifam5 <theaifam5@gmail.com>"]
-edition = "2018"
+edition = "2021"
 publish = false
 
 [lib]
@@ -13,21 +13,31 @@ path = "src/lib.rs"
 name = "ffh"
 path = "src/main.rs"
 
+[features]
+default = ["openssl"]
+rustls = ["actix-web/rustls"]
+openssl = ["actix-web/openssl"]
+
+[lints.rust]
+rust_2018_idioms = "deny"
+rust_2018_compatibility = "deny"
+
 [dependencies]
-actix-rt = "~1.1"
-actix-web = { version = "~3.0", features = ["openssl", "compress"] }
-actix-files = "~0.3"
-actix-service = "~1.0"
+actix-rt = "~2.10"
+actix-web = "~4.8"
+actix-files = "~0.6"
+actix-service = "~2.0"
 openssl = "~0.10"
 
+cfg-if = "~1.0"
 futures = "~0.3"
 log = "~0.4"
-log4rs = "~0.13"
+log4rs = "~1.3"
 serde = { version = "~1.0", features = ["derive"] }
 
 anyhow = "~1.0"
 thiserror = "~1.0"
-strum = "~0.19"
-strum_macros = "~0.19"
+strum = "~0.26"
+strum_macros = "~0.26"
 
 chrono = "~0.4"

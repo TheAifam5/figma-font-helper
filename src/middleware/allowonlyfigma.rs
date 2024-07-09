@@ -1,21 +1,21 @@
-use std::task::{Context, Poll};
+use std::rc::Rc;
 
 use actix_service::{Service, Transform};
 use actix_web::{
   dev::{ServiceRequest, ServiceResponse},
+  error,
   http::header::{ORIGIN, REFERER},
-  Error, HttpResponse,
+  Error,
 };
 use futures::future::{err, ok, Either, Ready};
 
 pub struct AllowFigmaOnly;
 
-impl<S, B> Transform<S> for AllowFigmaOnly
+impl<S, B> Transform<S, ServiceRequest> for AllowFigmaOnly
 where
-  S: Service<Request = ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+  S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
   S::Future: 'static,
 {
-  type Request = ServiceRequest;
   type Response = ServiceResponse<B>;
   type Error = Error;
   type Transform = AllowFigmaOnlyMiddleware<S>;
@@ -23,28 +23,25 @@ where
   type Future = Ready<Result<Self::Transform, Self::InitError>>;
 
   fn new_transform(&self, service: S) -> Self::Future {
-    ok(AllowFigmaOnlyMiddleware { service })
+    ok(AllowFigmaOnlyMiddleware { service: Rc::new(service) })
   }
 }
 pub struct AllowFigmaOnlyMiddleware<S> {
-  service: S,
+  service: Rc<S>,
 }
 
-impl<S, B> Service for AllowFigmaOnlyMiddleware<S>
+impl<S, B> Service<ServiceRequest> for AllowFigmaOnlyMiddleware<S>
 where
-  S: Service<Request = ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
+  S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
   S::Future: 'static,
 {
-  type Request = ServiceRequest;
   type Response = ServiceResponse<B>;
   type Error = Error;
   type Future = Either<S::Future, Ready<Result<Self::Response, Self::Error>>>;
 
-  fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-    self.service.poll_ready(cx)
-  }
+  actix_web::dev::forward_ready!(service);
 
-  fn call(&mut self, req: ServiceRequest) -> Self::Future {
+  fn call(&self, req: ServiceRequest) -> Self::Future {
     let request_host = {
       if let Some(value) = req.headers().get(ORIGIN) {
         value.to_str().ok()
@@ -59,6 +56,6 @@ where
       return Either::Left(self.service.call(req));
     }
 
-    return Either::Right(err(Error::from(HttpResponse::Forbidden())));
+    Either::Right(err(error::ErrorForbidden("Forbidden")))
   }
 }

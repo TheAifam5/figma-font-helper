@@ -200,6 +200,11 @@ impl FontProvider for PlatformFontProvider {
     Ok(Self { config, pattern, object_set })
   }
 
+  fn get_api_version(&self) -> Result<usize> {
+    // TODO: Implement this
+    Ok(35)
+  }
+
   fn get_all_fonts(&self) -> Result<Vec<FontDescriptor>> {
     let mut fonts: Vec<FontDescriptor> = vec![];
     let font_set: *const FcFontSet =
@@ -209,8 +214,8 @@ impl FontProvider for PlatformFontProvider {
       return Err(PlatformFontProviderErr::FontListEmpty("FcFontList failed".to_owned()));
     }
 
-    for pattern in unsafe { from_raw_parts((&*font_set).fonts, (&*font_set).nfont as usize) }
-      .into_iter()
+    for pattern in unsafe { from_raw_parts((*font_set).fonts, (*font_set).nfont as usize) }
+      .iter()
       .filter_map(|f| unsafe { f.as_ref() })
     {
       let mut path_raw: *const c_char = ptr::null();
@@ -236,19 +241,13 @@ impl FontProvider for PlatformFontProvider {
         && unsafe { FcPatternGetInteger(pattern, FC_SLANT.as_ptr(), 0, &mut slant_raw) }
           == FcResult::Match
       {
-        let weight: FcWeight = FcWeight::try_from(weight_raw)?;
-        let width: FcWidth = FcWidth::try_from(width_raw)?;
-
-        let path;
-        let family;
-        let style;
-        let postscript;
-
         if path_raw.is_null() {
           continue;
-        } else {
-          path = unsafe { CStr::from_ptr(path_raw) }.to_str()?.to_owned();
         }
+
+        let weight: FcWeight = FcWeight::try_from(weight_raw)?;
+        let width: FcWidth = FcWidth::try_from(width_raw)?;
+        let path = unsafe { CStr::from_ptr(path_raw) }.to_str()?.to_owned();
 
         match Self::get_extension_from_filename(path.as_str()) {
           Some("ttf") => {}
@@ -256,23 +255,23 @@ impl FontProvider for PlatformFontProvider {
           _ => continue,
         };
 
-        if family_raw.is_null() {
-          family = "".to_owned();
+        let family = if family_raw.is_null() {
+          "".to_owned()
         } else {
-          family = unsafe { CStr::from_ptr(family_raw) }.to_str()?.to_owned();
-        }
+          unsafe { CStr::from_ptr(family_raw) }.to_str()?.to_owned()
+        };
 
-        if style_raw.is_null() {
-          style = weight.to_string();
+        let style = if style_raw.is_null() {
+          weight.to_string()
         } else {
-          style = unsafe { CStr::from_ptr(style_raw) }.to_str()?.to_owned();
-        }
+          unsafe { CStr::from_ptr(style_raw) }.to_str()?.to_owned()
+        };
 
-        if psname_raw.is_null() {
-          postscript = format!("{}-{}", family, style).to_owned();
+        let postscript = if psname_raw.is_null() {
+          format!("{}-{}", family, style).to_owned()
         } else {
-          postscript = unsafe { CStr::from_ptr(psname_raw) }.to_str()?.to_owned();
-        }
+          unsafe { CStr::from_ptr(psname_raw) }.to_str()?.to_owned()
+        };
 
         fonts.push(FontDescriptor {
           path: PathBuf::from(path),
@@ -341,7 +340,7 @@ impl Drop for PlatformFontProvider {
 impl TryFrom<c_int> for FcWeight {
   type Error = PlatformFontProviderErr;
   fn try_from(value: c_int) -> Result<Self, Self::Error> {
-    return match value {
+    match value {
       0..=39 => Ok(FcWeight::Thin),
       40..=49 => Ok(FcWeight::ExtraLight),
       50..=74 => Ok(FcWeight::Light),
@@ -359,7 +358,7 @@ impl TryFrom<c_int> for FcWeight {
           Err(PlatformFontProviderErr::FontWeightMismatch(value))
         }
       }
-    };
+    }
   }
 }
 
@@ -384,7 +383,7 @@ impl From<FcWeight> for FontWeight {
 impl TryFrom<c_int> for FcWidth {
   type Error = PlatformFontProviderErr;
   fn try_from(value: c_int) -> Result<Self, Self::Error> {
-    return match value {
+    match value {
       0..=62 => Ok(FcWidth::UltraCondensed),
       63..=74 => Ok(FcWidth::ExtraCondensed),
       75..=86 => Ok(FcWidth::Condensed),
@@ -400,7 +399,7 @@ impl TryFrom<c_int> for FcWidth {
           Err(PlatformFontProviderErr::FontWidthMismatch(value))
         }
       }
-    };
+    }
   }
 }
 

@@ -1,25 +1,23 @@
 use crate::{
   dto::{FontDescriptorDTO, FontFilesDTO},
-  provider::PlatformFontProviderErr,
+  query::FontFilesQuery,
   ServerState,
 };
-use actix_web::{get, web, ResponseError, Result};
+use actix_web::{error, get, web, Result};
 use std::{collections::HashMap, path::PathBuf};
-use thiserror::Error;
-
-#[derive(Error, Debug)]
-pub enum FontFilesHandlerError {
-  #[error(transparent)]
-  FontProvider(#[from] PlatformFontProviderErr),
-}
 
 /// font_files handler
 #[get("/figma/font-files")]
 pub async fn handler(
+  web::Query(query): web::Query<FontFilesQuery>,
   state: web::Data<ServerState>,
-) -> Result<web::Json<FontFilesDTO>, FontFilesHandlerError> {
+) -> Result<web::Json<FontFilesDTO>> {
+  if state.font_provider_api_version < query.ft_min_ver {
+    return Err(error::ErrorBadRequest("Unsupported FreeType version"));
+  }
+
   let mut fonts = FontFilesDTO {
-    version: state.protocol_version,
+    version: state.figma_api_version,
     font_files: HashMap::<PathBuf, Vec<FontDescriptorDTO>>::new(),
   };
 
@@ -41,5 +39,3 @@ pub async fn handler(
   }
   Ok(web::Json(fonts))
 }
-
-impl ResponseError for FontFilesHandlerError {}

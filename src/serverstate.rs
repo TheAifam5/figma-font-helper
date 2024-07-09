@@ -15,15 +15,18 @@ pub enum ServerStateErr {
 type Result<T, E = ServerStateErr> = std::result::Result<T, E>;
 
 pub struct ServerState {
-  pub protocol_version: usize,
+  pub figma_api_version: usize,
+  pub font_provider_api_version: usize,
   pub database: FontDatabase,
 }
 
 impl ServerState {
   pub fn new() -> Result<Self, ServerStateErr> {
+    let font_provider = Box::new(PlatformFontProvider::new()?);
     Ok(Self {
-      protocol_version: 21,
-      database: FontDatabase::new(Box::new(PlatformFontProvider::new()?))?,
+      figma_api_version: 4,
+      font_provider_api_version: font_provider.get_api_version()?,
+      database: FontDatabase::new(font_provider)?,
     })
   }
 }

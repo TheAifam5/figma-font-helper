@@ -5,7 +5,6 @@
     "**/.history": true,
     "**/build": true
   },
-  "discord.enabled": true,
   "cSpell.words": [
     "actix",
     "demi",
@@ -18,5 +17,7 @@
     "psname",
     "referer",
     "sfont"
-  ]
+  ],
+  "rust-analyzer.cargo.allFeatures": false,
+  "rust-analyzer.cargo.features": ["openssl"]
 }

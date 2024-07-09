@@ -1,7 +1,5 @@
-#![forbid(future_incompatible, rust_2018_compatibility, warnings, clippy::all)]
-#![deny(unsafe_code, nonstandard_style, unused, rust_2018_idioms)]
-
-use anyhow::Result;
+use actix_web::web::Data;
+use anyhow::{Context, Result};
 
 use log::LevelFilter;
 use log4rs::append::console::ConsoleAppender;
@@ -9,12 +7,6 @@ use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Root};
 
 use actix_web::{web, App, HttpResponse, HttpServer};
-
-use openssl::{
-  error::ErrorStack,
-  pkcs12::Pkcs12,
-  ssl::{SslAcceptor, SslAcceptorBuilder, SslMethod},
-};
 
 use chrono::Local;
 use ffh::{middleware, route, ServerState};
@@ -43,13 +35,14 @@ async fn main() -> Result<()> {
 
   log::info!("Log path: {}", log_file_path.to_string_lossy());
 
-  HttpServer::new(|| {
+  let mut server = HttpServer::new(|| {
     App::new()
-      .app_data(web::Data::new(ServerState::new().unwrap()))
+      .app_data(Data::new(ServerState::new().unwrap()))
       .wrap(middleware::Compress::default())
       .wrap(
         middleware::DefaultHeaders::new()
-          .header("Access-Control-Allow-Origin", "https://www.figma.com"),
+          .add(("Access-Control-Allow-Origin", "https://www.figma.com"))
+          .add(("Access-Control-Allow-Private-Network", "true")),
       )
       // guard server to allow only requests from figma
       .wrap(middleware::AllowFigmaOnly)
@@ -66,30 +59,47 @@ async fn main() -> Result<()> {
       // default
       .default_service(
         // 404 for GET request
-        web::resource("").route(web::route().to(HttpResponse::NotFound)),
+        web::to(HttpResponse::NotFound),
       )
   })
-  .bind(("127.0.0.1", 18412))?
-  .bind_openssl(("127.0.0.1", 7335), create_ssl_acceptor()?)?
-  .run()
-  .await?;
+  .bind(("127.0.0.1", 44950))?;
+
+  cfg_if::cfg_if! {
+    if #[cfg(all(feature = "rustls", not(feature = "openssl")))] {
+      server = server.bind_rustlsi()?;
+    } else if #[cfg(all(feature = "openssl", not(feature = "rustls")))] {
+      server = server.bind_openssl(("127.0.0.1", 7335), create_ssl_acceptor()?)?;
+    }
+  };
+
+  server.run().await?;
 
   Ok(())
 }
 
-fn create_ssl_acceptor() -> Result<SslAcceptorBuilder, ErrorStack> {
+#[cfg(all(feature = "openssl", not(feature = "rustls")))]
+fn create_ssl_acceptor() -> Result<openssl::ssl::SslAcceptorBuilder> {
+  use openssl::{
+    pkcs12::Pkcs12,
+    ssl::{SslAcceptor, SslMethod},
+  };
+
   let pkcs12 = include_bytes!("../assets/figma.pfx");
   let pkcs12 = Pkcs12::from_der(pkcs12)?;
   let password = include_str!("../assets/figma.txt");
 
-  let identity = pkcs12.parse(password)?;
+  let identity = pkcs12.parse2(password)?;
   let mut acceptor = SslAcceptor::mozilla_intermediate(SslMethod::tls())?;
 
-  for x in &identity.chain.unwrap() {
-    acceptor.add_client_ca(x)?;
+  for ca in identity.ca.context("No CA found")?.iter() {
+    acceptor.add_client_ca(ca)?;
   }
-  acceptor.set_certificate(&identity.cert)?;
-  acceptor.set_private_key(&identity.pkey)?;
+
+  let cert = identity.cert.context("No cert found")?;
+  acceptor.set_certificate(&cert)?;
+
+  let pkey = identity.pkey.context("No private key found")?;
+  acceptor.set_private_key(&pkey)?;
 
   Ok(acceptor)
 }
