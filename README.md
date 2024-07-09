@@ -1,6 +1,6 @@
 # Rusty Figma Font Helper
 
-A basic Figma Font Helper. It was made around 4 years ago so a lot of stuff is outdated. I might work on a new version, much simpler and more efficient. :)
+A basic Figma Font Helper. It was made around 4 years ago so a lot of stuff is outdated, but it does work. I might work on a new version, much simpler and more efficient. :)
 Don't expect much from this project.
 
 ## Usage
